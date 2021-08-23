@@ -4,6 +4,7 @@ import json
 import argparse
 from tqdm import tqdm
 from corenlp import StanfordCoreNLP
+from spacynlp import SpaCyDepTreeParser
 
 FULL_MODEL = './stanford-corenlp-full-2018-10-05'
 punctuation = ['.', ',', ':', '?', '!', '(', ')', '"', '[', ']', ';', '\'']
@@ -82,6 +83,40 @@ def request_features_from_stanford(data_dir, flag):
             results["ori_sentence"] = ori_sentence
             results["word"] = sentence
             all_data.append(results)
+    assert len(all_data) == len(sentences_str)
+    with open(os.path.join(data_dir, flag + '.txt'), 'w', encoding='utf8') as fout_text, \
+            open(os.path.join(data_dir, flag + '.txt.dep'), 'w', encoding='utf8') as fout_dep:
+        for data in all_data:
+            #text
+            fout_text.write("{}\t{}\t{}\t{}\n".format(data["e1"], data["e2"], data["label"], " ".join(data["ori_sentence"])))
+            #dep
+            for dep_info in data["sentences"][0]["basicDependencies"]:
+                fout_dep.write("{}\t{}\t{}\n".format(dep_info["governor"], dep_info["dependent"], dep_info["dep"]))
+            fout_dep.write("\n")
+            assert len(data["sentences"][0]["basicDependencies"])+4 == len(data["ori_sentence"])
+
+def request_features_from_spacy(data_dir, flag):
+    data_path = os.path.join(data_dir, flag + '.tsv')
+    print("request_features_from_stanford {}".format(data_path))
+    if not os.path.exists(data_path):
+        print("{} not exist".format(data_path))
+        return
+    all_sentences = read_txt(data_path)
+    sentences_str = []
+    for e1, e2, label, raw_sentence, ori_sentence, sentence in all_sentences:
+        sentence = [change(s) for s in sentence]
+        sentences_str.append([e1, e2, label, raw_sentence, ori_sentence, sentence])
+    all_data = []
+    parser = SpaCyDepTreeParser()
+    for e1, e2, label, raw_sentence, ori_sentence, sentence in tqdm(sentences_str):
+        results = parser.parsing(' '.join(sentence))
+        results["e1"] = e1
+        results["e2"] = e2
+        results["label"] = label
+        results["raw_sentence"] = raw_sentence
+        results["ori_sentence"] = ori_sentence
+        results["word"] = sentence
+        all_data.append(results)
     assert len(all_data) == len(sentences_str)
     with open(os.path.join(data_dir, flag + '.txt'), 'w', encoding='utf8') as fout_text, \
             open(os.path.join(data_dir, flag + '.txt.dep'), 'w', encoding='utf8') as fout_dep:
