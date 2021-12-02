@@ -183,7 +183,7 @@ def train(args, model, tokenizer, processor, device, n_gpu, results={}):
     loss = tr_loss / nb_tr_steps if args.do_train else None
     return loss, global_step
 
-def evaluate(args, model, tokenizer, processor, device, mode="test", output_dir=None):
+def evaluate(args, model, tokenizer, processor, device, mode="test", output_dir='tmp'):
     label_map = processor.labels_dict
     id2label_map = {i : label for label, i in processor.labels_dict.items()}
 
@@ -227,6 +227,9 @@ def evaluate(args, model, tokenizer, processor, device, mode="test", output_dir=
     preds = np.argmax(pred_scores, axis=1)
 
     eval_run_time = time.time() - eval_start_time
+
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
 
     if args.task_name == 'semeval':
         result = semeval_official_eval(id2label_map, preds, out_label_ids, output_dir)
@@ -424,6 +427,7 @@ def test_func(args):
     tokenizer.add_never_split_tokens(["<e1>","</e1>","<e2>","</e2>"])
     config = BertConfig.from_json_file(os.path.join(args.model_path, "config.json"))
     model = ReTamm.from_pretrained(args.model_path, config=config)
+    model.to(device)
     dict_bin = torch.load(os.path.join(args.model_path, "dict.bin"))
     processor = RE_Processor(dep_order=config.dep_order, keys_dict=dict_bin["keys_dict"],
                              vals_dict=dict_bin["vals_dict"], labels_dict=dict_bin["labels_dict"])
